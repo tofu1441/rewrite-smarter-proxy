@@ -1,0 +1,26 @@
+{
+  "sortedMiddleware": [],
+  "middleware": {},
+  "functions": {
+    "/api/rewrite/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/app/api/rewrite/route.js"
+      ],
+      "name": "app/api/rewrite/route",
+      "page": "/api/rewrite/route",
+      "matchers": [
+        {
+          "regexp": "^/api/rewrite$",
+          "originalSource": "/api/rewrite"
+        }
+      ],
+      "wasm": [],
+      "assets": []
+    }
+  },
+  "version": 2
+}
