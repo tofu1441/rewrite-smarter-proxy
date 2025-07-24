@@ -1,24 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextResponse } from "next/server";
+import { Redis } from "@upstash/redis";
+import { Ratelimit } from "@upstash/ratelimit";
+import { OpenAI } from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
-export const runtime = 'edge';
+// Limit to 5 requests per 1 minute per IP
+const ratelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.fixedWindow(5, "1 m"),
+  analytics: true,
+});
 
-export async function POST(req: NextRequest) {
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  const { success } = await ratelimit.limit(ip);
+
+  if (!success) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
   const { input, tone } = await req.json();
 
-  const prompt = `Rewrite the following text to sound more ${tone}, while keeping the original meaning:\n\n"${input}"`;
+  const prompt = `Rewrite the following text to sound more ${tone}:\n\n"${input}"`;
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
-    messages: [
-      { role: 'system', content: 'You are a writing assistant that improves tone and clarity.' },
-      { role: 'user', content: prompt }
-    ],
-    temperature: 0.7,
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
   });
 
-  const result = completion.choices[0].message.content;
-  return NextResponse.json({ result });
+  return NextResponse.json({ result: completion.choices[0].message.content });
 }
